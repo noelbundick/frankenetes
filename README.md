@@ -13,4 +13,16 @@ Read more here:
 
 ```shell
 ./frankenetes.sh frankenetes frankenetes frankenetes-etcd.noelbundick.com frankenetes-apiserver.noelbundick.com
+
+export KUBECONFIG=frankenetes.kubeconfig
+
+# Run something!
+kubectl run nginx --image=nginx --requests 'cpu=1,memory=1G'
+```
+
+## Cleanup
+
+```shell
+for aci in `az container list -g frankenetes --query "[].name" -o tsv`; do az container delete -n $aci -g frankenetes -y; done
+for aci in `az container list -g frankenetes-pods --query "[].name" -o tsv`; do az container delete -n $aci -g frankenetes-pods -y; done
 ```

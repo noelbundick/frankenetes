@@ -13,7 +13,7 @@ APISERVER_DNS_NAME=$4
 az group create -n $AZURE_RESOURCE_GROUP -l eastus
 az storage account create -n $AZURE_STORAGE_ACCOUNT -g $AZURE_RESOURCE_GROUP
 
-AZURE_STORAGE_KEY=$(az storage account keys list -n $AZURE_STORAGE_ACCOUNT -g $AZURE_RESOURCE_GROUP --query '[0].value' -o tsv)
+export AZURE_STORAGE_KEY=$(az storage account keys list -n $AZURE_STORAGE_ACCOUNT -g $AZURE_RESOURCE_GROUP --query '[0].value' -o tsv)
 
 ############
 # etcd
@@ -141,3 +141,30 @@ kubectl config use-context frankenetes \
   --kubeconfig=frankenetes.kubeconfig
 
 echo "kubeconfig created at ./frankenetes.kubeconfig"
+
+############
+# virtual-kubelet
+############
+
+# Create a share for virtual-kubelet configuration
+az storage share create -n virtual-kubelet
+
+# TODO: create an azure provider config file
+
+# upload files
+az storage file upload -s virtual-kubelet --source ./frankenetes.kubeconfig
+az storage file upload -s virtual-kubelet --source ./credentials.json
+
+# Create a second resource group to hold pods
+az group create -n "${AZURE_RESOURCE_GROUP}-pods" -l eastus
+
+# TODO: add tls
+az container create -g $AZURE_RESOURCE_GROUP \
+  --name virtual-kubelet \
+  --image microsoft/virtual-kubelet \
+  --azure-file-volume-account-name $AZURE_STORAGE_ACCOUNT \
+  --azure-file-volume-account-key $AZURE_STORAGE_KEY \
+  --azure-file-volume-share-name virtual-kubelet \
+  --azure-file-volume-mount-path /etc/virtual-kubelet \
+  -e AZURE_AUTH_LOCATION=/etc/virtual-kubelet/credentials.json ACI_RESOURCE_GROUP=frankenetes-pods ACI_REGION=eastus \
+  --command-line "/usr/bin/virtual-kubelet --provider azure --nodename virtual-kubelet --os Linux --kubeconfig /etc/virtual-kubelet/frankenetes.kubeconfig"
