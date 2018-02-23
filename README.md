@@ -11,13 +11,38 @@ Read more here:
 
 ## Usage
 
+1. Create a `credentials.json` file for virtual-kubelet
+
 ```shell
-./frankenetes.sh frankenetes frankenetes frankenetes-etcd.noelbundick.com frankenetes-apiserver.noelbundick.com
+# Copy the example file and fill in your details
+cp credentials.example.json credentials.json
 
+# Get your subscriptionId
+az account show
+
+# Create a service principal
+# Tip: the following terms are synonymous: clientId<->appId, clientSecret<->password
+az ad sp create-for-rbac -n frankenetes
+```
+
+2. Create a virtual Kubernetes cluster
+
+`frankenetes.sh $resource_group $storage_account $etcd_dns_name_label $apiserver_dns_name_label`
+
+```shell
+./frankenetes.sh frankenetes frankenetes frankenetes-etcd frankenetes-apiserver
+```
+
+3. Run something!
+
+```shell
+# Run nginx
 export KUBECONFIG=frankenetes.kubeconfig
+kubectl run nginx --image=nginx --requests 'cpu=1,memory=1G' --port 80
 
-# Run something!
-kubectl run nginx --image=nginx --requests 'cpu=1,memory=1G'
+# Hit the deployed pod
+NGINX_IP=`kubectl get pod -l run=nginx -o=jsonpath='{.items[0].status.podIP}'`
+curl $NGINX_IP
 ```
 
 ## Cleanup
