@@ -1,6 +1,6 @@
 # frankenetes
 
-Kubernetes control plane on Azure Container Instances
+Virtual Kubernetes cluster on Azure Container Instances
 
 ## Description
 
@@ -27,25 +27,59 @@ az ad sp create-for-rbac -n frankenetes
 
 2. Create a virtual Kubernetes cluster
 
-`frankenetes.sh $resource_group $storage_account $etcd_dns_name_label $apiserver_dns_name_label`
+Usage: `frankenetes.sh $resource_group $storage_account $etcd_dns_name_label $apiserver_dns_name_label`
 
 ```shell
 ./frankenetes.sh frankenetes frankenetes frankenetes-etcd frankenetes-apiserver
 ```
 
-3. Run something!
+3. (optional) Set default CPU and memory limits
+
+ACI requires you to specify the # of CPU and amount of memory for each container group. This translates to Kubernetes resource requests. This sets 1CPU/1G memory as defaults across all namespaces. 
+
+```shell
+kubectl apply ./defaults
+```
+
+4. Run something!
+
+Frankenetes runs two virtual-kubelets, so it's a hybrid-OS cluster!
+
+You can run Linux containers:
 
 ```shell
 # Run nginx
 export KUBECONFIG=frankenetes.kubeconfig
-kubectl run nginx --image=nginx --requests 'cpu=1,memory=1G' --port 80
+kubectl run nginx --image=nginx --port 80
 
 # Hit the deployed pod
 NGINX_IP=`kubectl get pod -l run=nginx -o=jsonpath='{.items[0].status.podIP}'`
 curl $NGINX_IP
 ```
 
+Or Windows containers:
+
+```shell
+# Run IIS
+export KUBECONFIG=frankenetes.kubeconfig
+k run iis --image=microsoft/iis:nanoserver-sac2016 --port=80
+
+# Hit the deployed pod
+IIS_IP=`kubectl get pod -l run=iis -o=jsonpath='{.items[0].status.podIP}'`
+curl $IIS_IP
+```
+
 ## Cleanup
+
+To remove the cluster completely, delete the cluster & pod resource groups:
+
+```shell
+
+az group delete -n frankenetes -y --no-wait
+az group delete -n frankenetes-pods -y --no-wait
+```
+
+To stop all compute, but leave your cluster configuration intact, delete just your Azure Container Instances:
 
 ```shell
 for aci in `az container list -g frankenetes --query "[].name" -o tsv`; do az container delete -n $aci -g frankenetes -y; done

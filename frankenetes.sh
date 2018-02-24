@@ -68,9 +68,9 @@ az container create -g $AZURE_RESOURCE_GROUP \
   --ports 6445 \
   --ip-address public \
   --dns-name-label $APISERVER_DNS_LABEL \
-  --command-line "/apiserver  --advertise-address=0.0.0.0 --allow-privileged=true --apiserver-count=1 --audit-log-maxage=30 --audit-log-maxbackup=3 --audit-log-maxsize=100 --audit-log-path=/apiserverdata/log/audit.log --authorization-mode=Node,RBAC --bind-address=0.0.0.0 --etcd-servers=http://$ETCD_FQDN:2379 --runtime-config=api/all --v=2 --runtime-config=admissionregistration.k8s.io/v1alpha1 --enable-swagger-ui=true --event-ttl=1h --service-node-port-range=30000-32767 --insecure-bind-address=0.0.0.0 --insecure-port 6445"
+  --command-line "/apiserver --advertise-address=0.0.0.0 --allow-privileged=true --apiserver-count=1 --audit-log-maxage=30 --audit-log-maxbackup=3 --audit-log-maxsize=100 --audit-log-path=/apiserverdata/log/audit.log --authorization-mode=Node,RBAC --bind-address=0.0.0.0 --etcd-servers=http://$ETCD_FQDN:2379 --runtime-config=api/all --v=2 --runtime-config=admissionregistration.k8s.io/v1alpha1 --enable-swagger-ui=true --event-ttl=1h --service-node-port-range=30000-32767 --insecure-bind-address=0.0.0.0 --insecure-port 6445 --admission-control=NamespaceLifecycle,LimitRanger,ResourceQuota"
   
-# --admission-control=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota
+# --admission-control=Initializers,NodeRestriction,DefaultStorageClass,ServiceAccount
 # --client-ca-file=/var/lib/kubernetes/ca.pem \
 # --etcd-cafile=/var/lib/kubernetes/ca.pem \
 # --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \
@@ -143,7 +143,7 @@ kubectl config use-context frankenetes \
 echo "kubeconfig created at ./frankenetes.kubeconfig"
 
 ############
-# virtual-kubelet
+# virtual-kubelet setup
 ############
 
 # Create a share for virtual-kubelet configuration
@@ -158,6 +158,10 @@ az storage file upload -s virtual-kubelet --source ./credentials.json
 # Create a second resource group to hold pods
 az group create -n "${AZURE_RESOURCE_GROUP}-pods" -l $REGION
 
+############
+# virtual-kubelet (linux)
+############
+
 # TODO: add tls
 az container create -g $AZURE_RESOURCE_GROUP \
   --name virtual-kubelet \
@@ -168,3 +172,18 @@ az container create -g $AZURE_RESOURCE_GROUP \
   --azure-file-volume-mount-path /etc/virtual-kubelet \
   -e AZURE_AUTH_LOCATION=/etc/virtual-kubelet/credentials.json ACI_RESOURCE_GROUP=frankenetes-pods ACI_REGION=$REGION \
   --command-line "/usr/bin/virtual-kubelet --provider azure --nodename virtual-kubelet --os Linux --kubeconfig /etc/virtual-kubelet/frankenetes.kubeconfig"
+
+############
+# virtual-kubelet (windows)
+############
+
+# TODO: add tls
+az container create -g $AZURE_RESOURCE_GROUP \
+  --name virtual-kubelet-win \
+  --image microsoft/virtual-kubelet \
+  --azure-file-volume-account-name $AZURE_STORAGE_ACCOUNT \
+  --azure-file-volume-account-key $AZURE_STORAGE_KEY \
+  --azure-file-volume-share-name virtual-kubelet \
+  --azure-file-volume-mount-path /etc/virtual-kubelet \
+  -e AZURE_AUTH_LOCATION=/etc/virtual-kubelet/credentials.json ACI_RESOURCE_GROUP=frankenetes-pods ACI_REGION=$REGION \
+  --command-line "/usr/bin/virtual-kubelet --provider azure --nodename virtual-kubelet-win --os Windows --kubeconfig /etc/virtual-kubelet/frankenetes.kubeconfig"
