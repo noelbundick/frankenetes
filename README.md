@@ -15,7 +15,7 @@ Read more here:
 
 ```shell
 # Copy the example file and fill in your details
-cp credentials.example.json credentials.json
+cp samples/credentials.example.json credentials.json
 
 # Get your subscriptionId
 az account show
@@ -31,17 +31,10 @@ Usage: `frankenetes.sh $resource_group $storage_account $etcd_dns_name_label $ap
 
 ```shell
 ./frankenetes.sh frankenetes frankenetes frankenetes-etcd frankenetes-apiserver
+export KUBECONFIG=output/admin.kubeconfig
 ```
 
-3. (optional) Set default CPU and memory limits
-
-ACI requires you to specify the # of CPU and amount of memory for each container group. This translates to Kubernetes resource requests. This sets 1CPU/1G memory as defaults across all namespaces. 
-
-```shell
-kubectl apply ./defaults
-```
-
-4. Run something!
+3. Run something!
 
 Frankenetes runs two virtual-kubelets, so it's a hybrid-OS cluster!
 
@@ -49,7 +42,6 @@ You can run Linux containers:
 
 ```shell
 # Run nginx
-export KUBECONFIG=frankenetes.kubeconfig
 kubectl run nginx --image=nginx --port 80
 
 # Hit the deployed pod
@@ -61,7 +53,6 @@ Or Windows containers:
 
 ```shell
 # Run IIS
-export KUBECONFIG=frankenetes.kubeconfig
 k run iis --image=microsoft/iis:nanoserver-sac2016 --port=80
 
 # Hit the deployed pod

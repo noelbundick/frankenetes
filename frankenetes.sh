@@ -14,10 +14,161 @@ REGION=eastus
 ETCD_FQDN="$ETCD_DNS_LABEL.$REGION.azurecontainer.io"
 APISERVER_FQDN="$APISERVER_DNS_LABEL.$REGION.azurecontainer.io"
 
-az group create -n $AZURE_RESOURCE_GROUP -l $REGION
-az storage account create -n $AZURE_STORAGE_ACCOUNT -g $AZURE_RESOURCE_GROUP
+OUTPUT_DIR=output
 
-export AZURE_STORAGE_KEY=$(az storage account keys list -n $AZURE_STORAGE_ACCOUNT -g $AZURE_RESOURCE_GROUP --query '[0].value' -o tsv)
+az group create -n $AZURE_RESOURCE_GROUP -l $REGION
+az storage account create -n $AZURE_STORAGE_ACCOUNT -g $AZURE_RESOURCE_GROUP --sku Standard_LRS
+
+AZURE_STORAGE_KEY=$(az storage account keys list -n $AZURE_STORAGE_ACCOUNT -g $AZURE_RESOURCE_GROUP --query '[0].value' -o tsv)
+
+############
+# generate certs
+############
+
+# Create a share for TLS data
+az storage share create -n tls
+az storage file upload-batch -s ./tls -d tls --max-connections 5
+
+# Generate certs with a container instance
+az container create -g $AZURE_RESOURCE_GROUP \
+  --name cfssl \
+  --image cfssl/cfssl \
+  --azure-file-volume-account-name $AZURE_STORAGE_ACCOUNT \
+  --azure-file-volume-account-key $AZURE_STORAGE_KEY \
+  --azure-file-volume-share-name tls \
+  --azure-file-volume-mount-path /kube-tls \
+  --command-line "/bin/sh -c '/kube-tls/create_certs.sh $ETCD_FQDN $APISERVER_FQDN'" \
+  --restart-policy Never
+
+# Synchronously wait until the container is finished
+az container attach -n cfssl -g $AZURE_RESOURCE_GROUP
+
+# Clean up
+az container delete -n cfssl -g $AZURE_RESOURCE_GROUP -y
+
+# Download generated certs/keys
+mkdir -p $OUTPUT_DIR
+az storage file download-batch -s tls -d $OUTPUT_DIR --pattern '*.pem' --max-connections 5
+
+############
+# create admin kubeconfig
+############
+ADMIN_KUBECONFIG=$OUTPUT_DIR/admin.kubeconfig
+
+kubectl config set-cluster frankenetes \
+  --certificate-authority=./$OUTPUT_DIR/ca.pem \
+  --embed-certs=true \
+  --server="https://$APISERVER_FQDN:6443" \
+  --kubeconfig=$ADMIN_KUBECONFIG
+kubectl config set-credentials admin \
+  --client-certificate=./$OUTPUT_DIR/admin.pem \
+  --client-key=./$OUTPUT_DIR/admin-key.pem \
+  --embed-certs=true \
+  --kubeconfig=$ADMIN_KUBECONFIG
+kubectl config set-context frankenetes \
+  --cluster=frankenetes \
+  --user=admin \
+  --kubeconfig=$ADMIN_KUBECONFIG
+kubectl config use-context frankenetes \
+  --kubeconfig=$ADMIN_KUBECONFIG
+
+echo "admin kubeconfig created at $ADMIN_KUBECONFIG"
+
+############
+# create controller manager kubeconfig
+############
+CONTROLLER_MANAGER_KUBECONFIG=$OUTPUT_DIR/controller-manager.kubeconfig
+
+kubectl config set-cluster frankenetes \
+  --certificate-authority=./$OUTPUT_DIR/ca.pem \
+  --embed-certs=true \
+  --server="https://$APISERVER_FQDN:6443" \
+  --kubeconfig=$CONTROLLER_MANAGER_KUBECONFIG
+kubectl config set-credentials controller-manager \
+  --client-certificate=./$OUTPUT_DIR/kube-controller-manager.pem \
+  --client-key=./$OUTPUT_DIR/kube-controller-manager-key.pem \
+  --embed-certs=true \
+  --kubeconfig=$CONTROLLER_MANAGER_KUBECONFIG
+kubectl config set-context frankenetes \
+  --cluster=frankenetes \
+  --user=controller-manager \
+  --kubeconfig=$CONTROLLER_MANAGER_KUBECONFIG
+kubectl config use-context frankenetes \
+  --kubeconfig=$CONTROLLER_MANAGER_KUBECONFIG
+
+echo "controller manager kubeconfig created at $CONTROLLER_MANAGER_KUBECONFIG"
+
+############
+# create scheduler kubeconfig
+############
+SCHEDULER_KUBECONFIG=$OUTPUT_DIR/scheduler.kubeconfig
+
+kubectl config set-cluster frankenetes \
+  --certificate-authority=./$OUTPUT_DIR/ca.pem \
+  --embed-certs=true \
+  --server="https://$APISERVER_FQDN:6443" \
+  --kubeconfig=$SCHEDULER_KUBECONFIG
+kubectl config set-credentials scheduler \
+  --client-certificate=./$OUTPUT_DIR/kube-scheduler.pem \
+  --client-key=./$OUTPUT_DIR/kube-scheduler-key.pem \
+  --embed-certs=true \
+  --kubeconfig=$SCHEDULER_KUBECONFIG
+kubectl config set-context frankenetes \
+  --cluster=frankenetes \
+  --user=scheduler \
+  --kubeconfig=$SCHEDULER_KUBECONFIG
+kubectl config use-context frankenetes \
+  --kubeconfig=$SCHEDULER_KUBECONFIG
+
+echo "scheduler kubeconfig created at $SCHEDULER_KUBECONFIG"
+
+############
+# create virtual-kubelet kubeconfig
+############
+VK_KUBECONFIG=$OUTPUT_DIR/virtual-kubelet.kubeconfig
+
+kubectl config set-cluster frankenetes \
+  --certificate-authority=./$OUTPUT_DIR/ca.pem \
+  --embed-certs=true \
+  --server="https://$APISERVER_FQDN:6443" \
+  --kubeconfig=$VK_KUBECONFIG
+kubectl config set-credentials system:node:virtual-kubelet \
+  --client-certificate=./$OUTPUT_DIR/virtual-kubelet.pem \
+  --client-key=./$OUTPUT_DIR/virtual-kubelet-key.pem \
+  --embed-certs=true \
+  --kubeconfig=$VK_KUBECONFIG
+kubectl config set-context frankenetes \
+  --cluster=frankenetes \
+  --user=system:node:virtual-kubelet \
+  --kubeconfig=$VK_KUBECONFIG
+kubectl config use-context frankenetes \
+  --kubeconfig=$VK_KUBECONFIG
+
+echo "virtual-kubelet kubeconfig created at $VK_KUBECONFIG"
+
+############
+# create virtual-kubelet-win kubeconfig
+############
+VK_WIN_KUBECONFIG=$OUTPUT_DIR/virtual-kubelet-win.kubeconfig
+
+kubectl config set-cluster frankenetes \
+  --certificate-authority=./$OUTPUT_DIR/ca.pem \
+  --embed-certs=true \
+  --server="https://$APISERVER_FQDN:6443" \
+  --kubeconfig=$VK_WIN_KUBECONFIG
+kubectl config set-credentials system:node:virtual-kubelet-win \
+  --client-certificate=./$OUTPUT_DIR/virtual-kubelet-win.pem \
+  --client-key=./$OUTPUT_DIR/virtual-kubelet-win-key.pem \
+  --embed-certs=true \
+  --kubeconfig=$VK_WIN_KUBECONFIG
+kubectl config set-context frankenetes \
+  --cluster=frankenetes \
+  --user=system:node:virtual-kubelet-win \
+  --kubeconfig=$VK_WIN_KUBECONFIG
+kubectl config use-context frankenetes \
+  --kubeconfig=$VK_WIN_KUBECONFIG
+
+echo "virtual-kubelet-win kubeconfig created at $VK_WIN_KUBECONFIG"
 
 ############
 # etcd
@@ -26,13 +177,13 @@ export AZURE_STORAGE_KEY=$(az storage account keys list -n $AZURE_STORAGE_ACCOUN
 # Create an Azure File share to hold cluster data
 az storage share create -n etcd
 
-#TODO: Implement cert auth for a secure etcd cluster
-#TODO: Predefine DNS names, create ACI to get IP's, then update DNS when the container comes up. Use Event Grid + Azure Functions
-#az storage file upload -s etcd --source ./kubernetes.pem -p certs/kubernetes.pem
-#az storage file upload -s etcd --source ./kubernetes-key.pem -p certs/kubernetes-key.pem
-#az storage file upload -s etcd --source ./ca.pem -p certs/ca.pem
+# Upload certs for secure communication
+az storage directory create -s etcd -n certs
+az storage file upload -s etcd --source $OUTPUT_DIR/etcd.pem -p certs/etcd.pem
+az storage file upload -s etcd --source $OUTPUT_DIR/etcd-key.pem -p certs/etcd-key.pem
+az storage file upload -s etcd --source $OUTPUT_DIR/ca.pem -p certs/ca.pem
 
-#WARNING! This isn't useful until I fix the write ahead log & secure the cluster
+#WARNING! This isn't useful until I fix the write ahead log
 #TODO: figure out why I get "create wal error: rename /etcd/data/member/wal.tmp /etcd/data/member/wal: permission denied" when --wal-dir is not set
 #TODO: 3.3 errors out with "etcdserver: publish error: etcdserver: request timed out"
 az container create -g $AZURE_RESOURCE_GROUP \
@@ -42,12 +193,10 @@ az container create -g $AZURE_RESOURCE_GROUP \
   --azure-file-volume-account-key $AZURE_STORAGE_KEY \
   --azure-file-volume-share-name etcd \
   --azure-file-volume-mount-path /etcd \
-  --ports 2379 2389 \
+  --ports 2379 2380 \
   --ip-address public \
   --dns-name-label $ETCD_DNS_LABEL \
-  --command-line "/usr/local/bin/etcd --name=aci --data-dir=/etcd/data --wal-dir=/etcd-wal --listen-client-urls=http://0.0.0.0:2379 --advertise-client-urls=http://$ETCD_FQDN:2379"
-
-ETCD_IP=$(az container show -g $AZURE_RESOURCE_GROUP -n etcd --query 'ipAddress.ip' -o tsv)
+  --command-line "/usr/local/bin/etcd --name=frankenetes-etcd-0 --cert-file=/etcd/certs/etcd.pem --key-file=/etcd/certs/etcd-key.pem --trusted-ca-file=/etcd/certs/ca.pem --client-cert-auth --listen-client-urls=https://0.0.0.0:2379 --advertise-client-urls=https://$ETCD_FQDN:2379 --data-dir=/etcd/data --wal-dir=/etcd-wal"
 
 ############
 # apiserver
@@ -56,38 +205,30 @@ ETCD_IP=$(az container show -g $AZURE_RESOURCE_GROUP -n etcd --query 'ipAddress.
 # Create a share to hold certs/logs/etc
 az storage share create -n apiserver
 
-#TODO: secure apiserver
-#TODO: secure connection to etcd
+# Upload certs for secure communication
+az storage directory create -s apiserver -n certs
+az storage file upload -s apiserver --source $OUTPUT_DIR/kubernetes.pem -p certs/kubernetes.pem
+az storage file upload -s apiserver --source $OUTPUT_DIR/kubernetes-key.pem -p certs/kubernetes-key.pem
+az storage file upload -s apiserver --source $OUTPUT_DIR/etcd.pem -p certs/etcd.pem
+az storage file upload -s apiserver --source $OUTPUT_DIR/etcd-key.pem -p certs/etcd-key.pem
+az storage file upload -s apiserver --source $OUTPUT_DIR/ca.pem -p certs/ca.pem
+az storage file upload -s apiserver --source $OUTPUT_DIR/ca-key.pem -p certs/ca-key.pem
+
 az container create -g $AZURE_RESOURCE_GROUP \
   --name apiserver \
   --image gcr.io/google-containers/hyperkube-amd64:v1.9.2 \
   --azure-file-volume-account-name $AZURE_STORAGE_ACCOUNT \
   --azure-file-volume-account-key $AZURE_STORAGE_KEY \
   --azure-file-volume-share-name apiserver \
-  --azure-file-volume-mount-path /apiserverdata \
-  --ports 6445 \
+  --azure-file-volume-mount-path /apisrv \
+  --ports 6443 \
   --ip-address public \
   --dns-name-label $APISERVER_DNS_LABEL \
-  --command-line "/apiserver --advertise-address=0.0.0.0 --allow-privileged=true --apiserver-count=1 --audit-log-maxage=30 --audit-log-maxbackup=3 --audit-log-maxsize=100 --audit-log-path=/apiserverdata/log/audit.log --authorization-mode=Node,RBAC --bind-address=0.0.0.0 --etcd-servers=http://$ETCD_FQDN:2379 --runtime-config=api/all --v=2 --runtime-config=admissionregistration.k8s.io/v1alpha1 --enable-swagger-ui=true --event-ttl=1h --service-node-port-range=30000-32767 --insecure-bind-address=0.0.0.0 --insecure-port 6445 --admission-control=NamespaceLifecycle,LimitRanger,ResourceQuota"
+  --command-line "/apiserver --admission-control=NamespaceLifecycle,LimitRanger,ResourceQuota --advertise-address=0.0.0.0 --allow-privileged=true --apiserver-count=1 --audit-log-maxage=30 --audit-log-maxbackup=3 --audit-log-maxsize=100 --audit-log-path=/apisrv/log/audit.log --authorization-mode=Node,RBAC --bind-address=0.0.0.0 --client-ca-file=/apisrv/certs/ca.pem --enable-swagger-ui=true --etcd-cafile=/apisrv/certs/ca.pem --etcd-certfile=/apisrv/certs/etcd.pem --etcd-keyfile=/apisrv/certs/etcd-key.pem --etcd-servers=https://$ETCD_FQDN:2379 --event-ttl=1h --insecure-bind-address=127.0.0.1 --kubelet-certificate-authority=/apisrv/certs/ca.pem --kubelet-client-certificate=/apisrv/certs/kubernetes.pem --kubelet-client-key=/apisrv/certs/kubernetes-key.pem --kubelet-https=true --runtime-config=api/all --runtime-config=admissionregistration.k8s.io/v1alpha1 --service-account-key-file=/apisrv/certs/ca-key.pem --service-node-port-range=30000-32767 --tls-ca-file=/apisrv/certs/ca.pem --tls-cert-file=/apisrv/certs/kubernetes.pem --tls-private-key-file=/apisrv/certs/kubernetes-key.pem --v=2"
   
 # --admission-control=Initializers,NodeRestriction,DefaultStorageClass,ServiceAccount
-# --client-ca-file=/var/lib/kubernetes/ca.pem \
-# --etcd-cafile=/var/lib/kubernetes/ca.pem \
-# --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \
-# --etcd-keyfile=/var/lib/kubernetes/kubernetes-key.pem \
 # --experimental-encryption-provider-config=/var/lib/kubernetes/encryption-config.yaml \
-# --insecure-bind-address=127.0.0.1 \
-# --kubelet-certificate-authority=/var/lib/kubernetes/ca.pem \
-# --kubelet-client-certificate=/var/lib/kubernetes/kubernetes.pem \
-# --kubelet-client-key=/var/lib/kubernetes/kubernetes-key.pem \
-# --kubelet-https=true \
-# --service-account-key-file=/var/lib/kubernetes/ca-key.pem \
 # --service-cluster-ip-range=10.32.0.0/24 \
-# --tls-ca-file=/var/lib/kubernetes/ca.pem \
-# --tls-cert-file=/var/lib/kubernetes/kubernetes.pem \
-# --tls-private-key-file=/var/lib/kubernetes/kubernetes-key.pem \
-
-APISERVER_IP=$(az container show -g $AZURE_RESOURCE_GROUP -n apiserver --query 'ipAddress.ip' -o tsv)
 
 ############
 # controller manager
@@ -95,21 +236,21 @@ APISERVER_IP=$(az container show -g $AZURE_RESOURCE_GROUP -n apiserver --query '
 
 # Create a share to hold certs/logs/etc
 az storage share create -n controllermanager
+az storage directory create -s controllermanager -n certs
+az storage file upload -s controllermanager --source $CONTROLLER_MANAGER_KUBECONFIG -p controller-manager.kubeconfig
+az storage file upload -s controllermanager --source $OUTPUT_DIR/ca.pem -p certs/ca.pem
+az storage file upload -s controllermanager --source $OUTPUT_DIR/ca-key.pem -p certs/ca-key.pem
 
-#TODO: add tls
 az container create -g $AZURE_RESOURCE_GROUP \
   --name controllermanager \
   --image gcr.io/google-containers/hyperkube-amd64:v1.9.2 \
   --azure-file-volume-account-name $AZURE_STORAGE_ACCOUNT \
   --azure-file-volume-account-key $AZURE_STORAGE_KEY \
   --azure-file-volume-share-name controllermanager \
-  --azure-file-volume-mount-path /controllermanagerdata \
-  --command-line "/controller-manager --address=0.0.0.0 --cluster-cidr=10.200.0.0/16 --cluster-name=kubernetes --leader-elect=true --master=http://$APISERVER_FQDN:6445 --service-cluster-ip-range=10.32.0.0/24 --v=2"
+  --azure-file-volume-mount-path /cm \
+  --command-line "/controller-manager --address=0.0.0.0 --cluster-cidr=10.200.0.0/16 --cluster-name=kubernetes --cluster-signing-cert-file=/cm/certs/ca.pem --cluster-signing-key-file=/cm/certs/ca-key.pem --kubeconfig=/cm/controller-manager.kubeconfig --leader-elect=true --root-ca-file=/cm/certs/ca.pem --service-account-private-key-file=/cm/certs/ca-key.pem --use-service-account-credentials --v=2"
 
-  # --cluster-signing-cert-file=/var/lib/kubernetes/ca.pem \\
-  # --cluster-signing-key-file=/var/lib/kubernetes/ca-key.pem \\
-  # --root-ca-file=/var/lib/kubernetes/ca.pem \\
-  # --service-account-private-key-file=/var/lib/kubernetes/ca-key.pem \\
+# --service-cluster-ip-range=10.32.0.0/24
 
 ############
 # scheduler
@@ -117,30 +258,22 @@ az container create -g $AZURE_RESOURCE_GROUP \
 
 # Create a share to hold certs/logs/etc
 az storage share create -n scheduler
+az storage file upload -s scheduler --source $SCHEDULER_KUBECONFIG -p scheduler.kubeconfig
 
-#TODO: add tls
 az container create -g $AZURE_RESOURCE_GROUP \
   --name scheduler \
   --image gcr.io/google-containers/hyperkube-amd64:v1.9.2 \
   --azure-file-volume-account-name $AZURE_STORAGE_ACCOUNT \
   --azure-file-volume-account-key $AZURE_STORAGE_KEY \
   --azure-file-volume-share-name scheduler \
-  --azure-file-volume-mount-path /schedulerdata \
-  --command-line "/scheduler --leader-elect=true --master=http://$APISERVER_FQDN:6445 --v=2"
+  --azure-file-volume-mount-path /sched \
+  --command-line "/scheduler --kubeconfig=/sched/scheduler.kubeconfig --leader-elect=true --v=2"
 
 ############
-# create client kubeconfig
+# defaults
 ############
-kubectl config set-cluster frankenetes \
-  --server="http://$APISERVER_FQDN:6445"   \
-  --kubeconfig=frankenetes.kubeconfig
-kubectl config set-context frankenetes \
-  --cluster=frankenetes \
-  --kubeconfig=frankenetes.kubeconfig
-kubectl config use-context frankenetes \
-  --kubeconfig=frankenetes.kubeconfig
-
-echo "kubeconfig created at ./frankenetes.kubeconfig"
+export KUBECONFIG=$ADMIN_KUBECONFIG
+kubectl apply -f ./defaults
 
 ############
 # virtual-kubelet setup
@@ -152,8 +285,9 @@ az storage share create -n virtual-kubelet
 # TODO: create an azure provider config file
 
 # upload files
-az storage file upload -s virtual-kubelet --source ./frankenetes.kubeconfig
-az storage file upload -s virtual-kubelet --source ./credentials.json
+az storage file upload -s virtual-kubelet --source $VK_KUBECONFIG -p virtual-kubelet.kubeconfig
+az storage file upload -s virtual-kubelet --source $VK_WIN_KUBECONFIG -p virtual-kubelet-win.kubeconfig
+az storage file upload -s virtual-kubelet --source credentials.json
 
 # Create a second resource group to hold pods
 az group create -n "${AZURE_RESOURCE_GROUP}-pods" -l $REGION
@@ -162,7 +296,6 @@ az group create -n "${AZURE_RESOURCE_GROUP}-pods" -l $REGION
 # virtual-kubelet (linux)
 ############
 
-# TODO: add tls
 az container create -g $AZURE_RESOURCE_GROUP \
   --name virtual-kubelet \
   --image microsoft/virtual-kubelet \
@@ -171,13 +304,12 @@ az container create -g $AZURE_RESOURCE_GROUP \
   --azure-file-volume-share-name virtual-kubelet \
   --azure-file-volume-mount-path /etc/virtual-kubelet \
   -e AZURE_AUTH_LOCATION=/etc/virtual-kubelet/credentials.json ACI_RESOURCE_GROUP=frankenetes-pods ACI_REGION=$REGION \
-  --command-line "/usr/bin/virtual-kubelet --provider azure --nodename virtual-kubelet --os Linux --kubeconfig /etc/virtual-kubelet/frankenetes.kubeconfig"
+  --command-line "/usr/bin/virtual-kubelet --kubeconfig /etc/virtual-kubelet/virtual-kubelet.kubeconfig --nodename virtual-kubelet --os Linux --provider azure"
 
 ############
 # virtual-kubelet (windows)
 ############
 
-# TODO: add tls
 az container create -g $AZURE_RESOURCE_GROUP \
   --name virtual-kubelet-win \
   --image microsoft/virtual-kubelet \
@@ -186,4 +318,4 @@ az container create -g $AZURE_RESOURCE_GROUP \
   --azure-file-volume-share-name virtual-kubelet \
   --azure-file-volume-mount-path /etc/virtual-kubelet \
   -e AZURE_AUTH_LOCATION=/etc/virtual-kubelet/credentials.json ACI_RESOURCE_GROUP=frankenetes-pods ACI_REGION=$REGION \
-  --command-line "/usr/bin/virtual-kubelet --provider azure --nodename virtual-kubelet-win --os Windows --kubeconfig /etc/virtual-kubelet/frankenetes.kubeconfig"
+  --command-line "/usr/bin/virtual-kubelet --provider azure --nodename virtual-kubelet-win --os Windows --kubeconfig /etc/virtual-kubelet/virtual-kubelet-win.kubeconfig"
