@@ -7,6 +7,7 @@ cd `dirname $0`
 # Create a new Certificate Authority
 cfssl gencert -initca ca-csr.json | cfssljson -bare ca
 
+# TODO: Use different CA's for etcd vs k8s
 # etcd
 cfssl gencert \
   -ca=ca.pem \
@@ -15,6 +16,7 @@ cfssl gencert \
   -hostname=$ETCD_FQDN,127.0.0.1 \
   -profile=kubernetes \
   etcd-csr.json | cfssljson -bare etcd
+cp etcd.pem etcd-key.pem ca.pem /etcd
 
 # apiserver
 cfssl gencert \
@@ -24,6 +26,7 @@ cfssl gencert \
   -hostname=$APISERVER_FQDN,127.0.0.1,kubernetes.default \
   -profile=kubernetes \
   kubernetes-csr.json | cfssljson -bare kubernetes
+cp kubernetes.pem kubernetes-key.pem etcd.pem etcd-key.pem ca.pem ca-key.pem /apiserver
 
 # Generate the admin client certificate
 cfssl gencert \
@@ -40,6 +43,7 @@ cfssl gencert \
   -config=ca-config.json \
   -profile=kubernetes \
   kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager
+cp ca.pem ca-key.pem /controllermanager
 
 # kube-scheduler
 cfssl gencert \

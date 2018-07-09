@@ -11,26 +11,21 @@ Read more here:
 
 ## Usage
 
-1. Create a `credentials.json` file for virtual-kubelet
+1. Create a Service Principal for virtual-kubelet
 
 ```shell
-# Copy the example file and fill in your details
-cp samples/credentials.example.json credentials.json
-
-# Get your subscriptionId
-az account show
-
 # Create a service principal
 # Tip: the following terms are synonymous: clientId<->appId, clientSecret<->password
-az ad sp create-for-rbac -n frankenetes
+az ad sp create-for-rbac -n frankenetes --skip-assignment
 ```
 
 2. Create a virtual Kubernetes cluster
 
-Usage: `frankenetes.sh $resource_group $storage_account $etcd_dns_name_label $apiserver_dns_name_label`
-
 ```shell
-./frankenetes.sh frankenetes frankenetes frankenetes-etcd frankenetes-apiserver
+az group create -n frankenetes -l eastus
+az group deployment create -g frankenetes --template-file ./azuredeploy.json --parameters servicePrincipalClientId=<clientId> servicePrincipalClientSecret=<clientSecret> servicePrincipalObjectId=<objectId>
+
+# TODO: download the kubeconfig
 export KUBECONFIG=output/admin.kubeconfig
 ```
 
@@ -65,7 +60,6 @@ curl $IIS_IP
 To remove the cluster completely, delete the cluster & pod resource groups:
 
 ```shell
-
 az group delete -n frankenetes -y --no-wait
 az group delete -n frankenetes-pods -y --no-wait
 ```
