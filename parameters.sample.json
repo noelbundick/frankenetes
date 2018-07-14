@@ -1,0 +1,15 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "servicePrincipalClientId": {
+      "value": "d191834b-851f-4428-9612-817c8ad351b7"
+    },
+    "servicePrincipalObjectId": {
+      "value": "b569938f-9689-4aa0-b434-43ae2d5c5ccb"
+    },
+    "servicePrincipalClientSecret": {
+      "value": "dcf7b153-7599-4fc8-9d98-2782612d097e"
+    }
+  }
+}

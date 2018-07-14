@@ -23,10 +23,12 @@ az ad sp create-for-rbac -n frankenetes --skip-assignment
 
 ```shell
 az group create -n frankenetes -l eastus
-az group deployment create -g frankenetes --template-file ./azuredeploy.json --parameters servicePrincipalClientId=<clientId> servicePrincipalClientSecret=<clientSecret> servicePrincipalObjectId=<objectId>
+az group deployment create -g frankenetes --template-file ./azuredeploy.json --parameters servicePrincipalClientId=<clientId> servicePrincipalClientSecret=<clientSecret> servicePrincipalObjectId=<objectId> --query 'properties.outputs.kubeconfig.value' -o tsv
 
-# TODO: download the kubeconfig
-export KUBECONFIG=output/admin.kubeconfig
+# Download the kubeconfig from Azure Files
+# The exact command to run is an output of the deployment
+az storage file download --account-name <storageAccountName> -s kubeconfigs -p admin.kubeconfig
+export KUBECONFIG=admin.kubeconfig
 ```
 
 3. Run something!
@@ -57,16 +59,14 @@ curl $IIS_IP
 
 ## Cleanup
 
-To remove the cluster completely, delete the cluster & pod resource groups:
+To remove the cluster completely, delete the resource groups:
 
 ```shell
 az group delete -n frankenetes -y --no-wait
-az group delete -n frankenetes-pods -y --no-wait
 ```
 
 To stop all compute, but leave your cluster configuration intact, delete just your Azure Container Instances:
 
 ```shell
 for aci in `az container list -g frankenetes --query "[].name" -o tsv`; do az container delete -n $aci -g frankenetes -y; done
-for aci in `az container list -g frankenetes-pods --query "[].name" -o tsv`; do az container delete -n $aci -g frankenetes-pods -y; done
 ```

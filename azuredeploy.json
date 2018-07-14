@@ -14,6 +14,10 @@
       "type": "string",
       "defaultValue": "v1.9.2"
     },
+    "vkPodResourceGroupName": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]"
+    },
     "servicePrincipalClientId": {
       "type": "string"
     },
@@ -33,7 +37,8 @@
     "etcdFQDN": "[concat(parameters('etcdDnsNameLabel'), '.', resourceGroup().location, '.azurecontainer.io')]",
     "apiserverFQDN": "[concat(parameters('apiserverDnsNameLabel'), '.', resourceGroup().location, '.azurecontainer.io')]",
     "sharesToCreate": "tls kubeconfigs etcd apiserver controller-manager scheduler virtual-kubelet",
-    "vkConfig": "[concat('{\"clientId\": \"', parameters('servicePrincipalClientId'), '\",\"clientSecret\": \"', parameters('servicePrincipalClientSecret'), '\",\"subscriptionId\": \"', subscription().subscriptionId, '\",\"tenantId\": \"', subscription().tenantId, '\",\"activeDirectoryEndpointUrl\": \"https://login.microsoftonline.com/\",\"resourceManagerEndpointUrl\": \"https://management.azure.com/\",\"activeDirectoryGraphResourceId\": \"https://graph.windows.net/\",\"sqlManagementEndpointUrl\": \"database.windows.net\",\"galleryEndpointUrl\": \"https://gallery.azure.com/\",\"managementEndpointUrl\": \"https://management.core.windows.net/\"}')]"
+    "vkConfig": "[concat('{\"clientId\": \"', parameters('servicePrincipalClientId'), '\",\"clientSecret\": \"', parameters('servicePrincipalClientSecret'), '\",\"subscriptionId\": \"', subscription().subscriptionId, '\",\"tenantId\": \"', subscription().tenantId, '\",\"activeDirectoryEndpointUrl\": \"https://login.microsoftonline.com/\",\"resourceManagerEndpointUrl\": \"https://management.azure.com/\",\"activeDirectoryGraphResourceId\": \"https://graph.windows.net/\",\"sqlManagementEndpointUrl\": \"database.windows.net\",\"galleryEndpointUrl\": \"https://gallery.azure.com/\",\"managementEndpointUrl\": \"https://management.core.windows.net/\"}')]",
+    "storageApiVersion": "[providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]]"
   },
   "resources": [
     {
@@ -95,7 +100,7 @@
                 },
                 {
                   "name": "AZURE_STORAGE_KEY",
-                  "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+                  "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
                 },
                 {
                   "name": "SHARES",
@@ -181,7 +186,7 @@
             "azureFile": {
               "shareName": "tls",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -189,7 +194,7 @@
             "azureFile": {
               "shareName": "etcd",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -197,7 +202,7 @@
             "azureFile": {
               "shareName": "apiserver",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -205,7 +210,7 @@
             "azureFile": {
               "shareName": "controller-manager",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           }
         ]
@@ -280,7 +285,7 @@
             "azureFile": {
               "shareName": "tls",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -288,7 +293,7 @@
             "azureFile": {
               "shareName": "kubeconfigs",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -296,7 +301,7 @@
             "azureFile": {
               "shareName": "controller-manager",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -304,7 +309,7 @@
             "azureFile": {
               "shareName": "scheduler",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -312,7 +317,7 @@
             "azureFile": {
               "shareName": "virtual-kubelet",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           }
         ]
@@ -391,7 +396,7 @@
             "azureFile": {
               "shareName": "etcd",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           }
         ]
@@ -483,7 +488,7 @@
             "azureFile": {
               "shareName": "apiserver",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           }
         ]
@@ -540,7 +545,7 @@
             "azureFile": {
               "shareName": "controller-manager",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           }
         ]
@@ -589,7 +594,7 @@
             "azureFile": {
               "shareName": "scheduler",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           }
         ]
@@ -648,7 +653,7 @@
             "azureFile": {
               "shareName": "kubeconfigs",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           }
         ]
@@ -681,7 +686,50 @@
                 },
                 {
                   "name": "ACI_RESOURCE_GROUP",
-                  "value": "[resourceGroup().name]"
+                  "value": "[parameters('vkPodResourceGroupName')]"
+                },
+                {
+                  "name": "ACI_REGION",
+                  "value": "[resourceGroup().location]"
+                }
+              ],
+              "image": "microsoft/virtual-kubelet",
+              "resources": {
+                "requests": {
+                  "cpu": 1,
+                  "memoryInGB": 1.5
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "azurefile",
+                  "mountPath": "/etc/virtual-kubelet"
+                },
+                {
+                  "name": "secret",
+                  "mountPath": "/etc/virtual-kubelet/secret"
+                }
+              ]
+            }
+          },
+          {
+            "name": "virtual-kubelet-win",
+            "properties": {
+              "command": [
+                "/usr/bin/virtual-kubelet",
+                "--kubeconfig", "/etc/virtual-kubelet/virtual-kubelet-win.kubeconfig",
+                "--nodename", "virtual-kubelet-win",
+                "--os", "Windows",
+                "--provider", "azure"
+              ],
+              "environmentVariables": [
+                {
+                  "name": "AZURE_AUTH_LOCATION",
+                  "value": "/etc/virtual-kubelet/secret/credentials.json"
+                },
+                {
+                  "name": "ACI_RESOURCE_GROUP",
+                  "value": "[parameters('vkPodResourceGroupName')]"
                 },
                 {
                   "name": "ACI_REGION",
@@ -716,7 +764,7 @@
             "azureFile": {
               "shareName": "virtual-kubelet",
               "storageAccountName": "[parameters('storageAccountName')]",
-              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
+              "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), variables('storageApiVersion')).keys[0].value]"
             }
           },
           {
@@ -730,5 +778,9 @@
     }
   ],
   "outputs": {
+    "kubeconfig": {
+      "type": "string",
+      "value": "[concat('az storage file download --account-name ', parameters('storageAccountName'), ' -s kubeconfigs -p admin.kubeconfig')]"
+    }
   }
 }
