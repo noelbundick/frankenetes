@@ -1,8 +1,8 @@
 ETCD_FQDN=$1
 APISERVER_FQDN=$2
 
-# Execute in the script directory
-cd `dirname $0`
+# Execute in the tls directory
+cd `dirname $0`/tls
 
 # Create a new Certificate Authority
 cfssl gencert -initca ca-csr.json | cfssljson -bare ca

@@ -137,7 +137,7 @@
               "command": [
                 "/bin/sh",
                 "-c",
-                "[concat('chmod +x /frankenetes/create_certs.sh && /frankenetes/create_certs.sh ', variables('etcdFQDN'), ' ', variables('apiserverFQDN'), ' && cp /frankenetes/*.pem /tls')]"
+                "[concat('chmod +x /frankenetes/create_certs.sh && /frankenetes/create_certs.sh ', variables('etcdFQDN'), ' ', variables('apiserverFQDN'), ' && cp /frankenetes/tls/*.pem /tls')]"
               ],
               "image": "cfssl/cfssl",
               "resources": {
@@ -177,8 +177,8 @@
           {
             "name": "scripts",
             "gitRepo": {
-              "repository": "https://gist.github.com/5e6b98f807a968c89917c44b3e714553.git",
-              "directory": "."
+              "repository": "https://github.com/noelbundick/frankenetes.git",
+              "directory": "frankenetes"
             }
           },
           {
@@ -276,8 +276,8 @@
           {
             "name": "scripts",
             "gitRepo": {
-              "repository": "https://gist.github.com/5e6b98f807a968c89917c44b3e714553.git",
-              "directory": "."
+              "repository": "https://github.com/noelbundick/frankenetes.git",
+              "directory": "frankenetes"
             }
           },
           {
@@ -644,8 +644,8 @@
           {
             "name": "scripts",
             "gitRepo": {
-              "repository": "https://gist.github.com/5e6b98f807a968c89917c44b3e714553.git",
-              "directory": "."
+              "repository": "https://github.com/noelbundick/frankenetes.git",
+              "directory": "frankenetes"
             }
           },
           {
