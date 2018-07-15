@@ -137,7 +137,7 @@
               "command": [
                 "/bin/sh",
                 "-c",
-                "[concat('chmod +x /frankenetes/create_certs.sh && /frankenetes/create_certs.sh ', variables('etcdFQDN'), ' ', variables('apiserverFQDN'), ' && cp /frankenetes/tls/*.pem /tls')]"
+                "[concat('chmod +x /frankenetes/frankenetes/create_certs.sh && /frankenetes/frankenetes/create_certs.sh ', variables('etcdFQDN'), ' ', variables('apiserverFQDN'), ' && cp /frankenetes/frankenetes/tls/*.pem /tls')]"
               ],
               "image": "cfssl/cfssl",
               "resources": {
@@ -178,7 +178,7 @@
             "name": "scripts",
             "gitRepo": {
               "repository": "https://github.com/noelbundick/frankenetes.git",
-              "directory": "frankenetes"
+              "directory": "."
             }
           },
           {
@@ -232,7 +232,7 @@
               "command": [
                 "/bin/sh",
                 "-c",
-                "[concat('chmod +x /frankenetes/create_kubeconfigs.sh && /frankenetes/create_kubeconfigs.sh ', variables('apiServerFQDN'), ' /tls /kubeconfigs')]"
+                "[concat('chmod +x /frankenetes/frankenetes/create_kubeconfigs.sh && /frankenetes/frankenetes/create_kubeconfigs.sh ', variables('apiServerFQDN'), ' /tls /kubeconfigs')]"
               ],
               "image": "[concat('lachlanevenson/k8s-kubectl:', parameters('k8sVersion'))]",
               "resources": {
@@ -277,7 +277,7 @@
             "name": "scripts",
             "gitRepo": {
               "repository": "https://github.com/noelbundick/frankenetes.git",
-              "directory": "frankenetes"
+              "directory": "."
             }
           },
           {
@@ -616,7 +616,7 @@
               "command": [
                 "/bin/sh",
                 "-c",
-                "chmod +x /frankenetes/apply_defaults.sh && /frankenetes/apply_defaults.sh /kubeconfigs/admin.kubeconfig"
+                "chmod +x /frankenetes/frankenetes/apply_defaults.sh && /frankenetes/frankenetes/apply_defaults.sh /kubeconfigs/admin.kubeconfig"
               ],
               "image": "[concat('lachlanevenson/k8s-kubectl:', parameters('k8sVersion'))]",
               "resources": {
@@ -645,7 +645,7 @@
             "name": "scripts",
             "gitRepo": {
               "repository": "https://github.com/noelbundick/frankenetes.git",
-              "directory": "frankenetes"
+              "directory": "."
             }
           },
           {
