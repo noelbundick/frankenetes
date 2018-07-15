@@ -1,10 +1,12 @@
 # frankenetes
 
-Virtual Kubernetes cluster on Azure Container Instances
+Serverless Kubernetes on Azure Container Instances
+
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fnoelbundick%2Ffrankenetes%2Fmaster%2Fazuredeploy.json" target="_blank"><img src="https://azuredeploy.net/deploybutton.svg" alt="Deploy to Azure" /></a>
 
 ## Description
 
-This repo is my work-in-progress to run a "virtual cluster" on top of Azure Container Instances
+This repo contains all the code needed to create a "virtual cluster" on top of Azure Container Instances. **This isn't production-grade** - think of it as a fun experiment and a reference on what's possible using Resource Manager Templates and ACI.
 
 Read more here:
 [https://www.noelbundick.com/2018/01/22/Frankenetes-Running-the-Kubernetes-control-plane-on-Azure-Container-Instances/](https://www.noelbundick.com/2018/01/22/Frankenetes-Running-the-Kubernetes-control-plane-on-Azure-Container-Instances/)
